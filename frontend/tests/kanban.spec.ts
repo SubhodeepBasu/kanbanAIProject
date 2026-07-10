@@ -25,21 +25,32 @@ test("loads the kanban board", async ({ page }) => {
 test("adds a card to a column", async ({ page }) => {
   await page.goto("/");
   await signIn(page);
+  const uniqueTitle = `Playwright card ${Date.now()}`;
   const firstColumn = page.locator('[data-testid^="column-"]').first();
   await firstColumn.getByRole("button", { name: /add a card/i }).click();
-  await firstColumn.getByPlaceholder("Card title").fill("Playwright card");
+  await firstColumn.getByPlaceholder("Card title").fill(uniqueTitle);
   await firstColumn.getByPlaceholder("Details").fill("Added via e2e.");
   await firstColumn.getByRole("button", { name: /add card/i }).click();
-  await expect(firstColumn.getByText("Playwright card")).toBeVisible();
+  await expect(firstColumn.getByText(uniqueTitle)).toBeVisible();
   await page.reload();
-  await expect(page.getByText("Playwright card")).toBeVisible();
+  await expect(page.getByText(uniqueTitle)).toBeVisible();
 });
 
 test("moves a card between columns", async ({ page }) => {
   await page.goto("/");
   await signIn(page);
-  const card = page.getByTestId("card-card-1");
+
+  const sourceColumn = page.getByTestId("column-col-backlog");
+  const card = sourceColumn.locator('[data-testid^="card-"]').first();
+  const cardTestId = await card.getAttribute("data-testid");
+  if (!cardTestId) {
+    throw new Error("Unable to resolve source card test id.");
+  }
+
+  await card.scrollIntoViewIfNeeded();
   const targetColumn = page.getByTestId("column-col-review");
+  await targetColumn.scrollIntoViewIfNeeded();
+
   const cardBox = await card.boundingBox();
   const columnBox = await targetColumn.boundingBox();
   if (!cardBox || !columnBox) {
@@ -57,5 +68,5 @@ test("moves a card between columns", async ({ page }) => {
     { steps: 12 }
   );
   await page.mouse.up();
-  await expect(targetColumn.getByTestId("card-card-1")).toBeVisible();
+  await expect(targetColumn.getByTestId(cardTestId)).toBeVisible();
 });

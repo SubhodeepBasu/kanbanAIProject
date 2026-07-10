@@ -100,6 +100,13 @@ def run_board_action_prompt(
         "Return strict JSON only with keys assistantMessage and operations. "
         "operations must be an array of objects using only these operation types: "
         "create_card, edit_card, move_card, delete_card, rename_column. "
+        "For each operation, include required IDs exactly as fields: "
+        "rename_column requires columnId and title; "
+        "create_card requires columnId, cardId, title, details; "
+        "edit_card requires cardId and at least one of title/details; "
+        "move_card requires cardId and toColumnId (optional index); "
+        "delete_card requires cardId. "
+        "Never use column names in place of columnId. "
         "Do not include markdown fences."
     )
 
@@ -111,7 +118,13 @@ def run_board_action_prompt(
             "operations": [
                 {
                     "type": "create_card|edit_card|move_card|delete_card|rename_column",
-                    "fields": "operation-dependent",
+                    "requiredFieldsByType": {
+                        "rename_column": ["type", "columnId", "title"],
+                        "create_card": ["type", "columnId", "cardId", "title", "details"],
+                        "edit_card": ["type", "cardId", "title|details"],
+                        "move_card": ["type", "cardId", "toColumnId"],
+                        "delete_card": ["type", "cardId"],
+                    },
                 }
             ],
         },

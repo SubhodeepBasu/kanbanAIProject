@@ -5,10 +5,12 @@ import { initialData } from "@/lib/kanban";
 
 const fetchBoardMock = vi.fn();
 const saveBoardMock = vi.fn();
+const requestAiBoardActionMock = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   fetchBoard: () => fetchBoardMock(),
   saveBoard: (board: unknown) => saveBoardMock(board),
+  requestAiBoardAction: (prompt: string) => requestAiBoardActionMock(prompt),
 }));
 
 const getFirstColumn = () => screen.getAllByTestId(/column-/i)[0];
@@ -17,11 +19,12 @@ describe("KanbanBoard", () => {
   beforeEach(() => {
     fetchBoardMock.mockResolvedValue(initialData);
     saveBoardMock.mockResolvedValue(undefined);
+    requestAiBoardActionMock.mockReset();
   });
 
-  it("renders five columns", () => {
+  it("renders five columns", async () => {
     render(<KanbanBoard />);
-    expect(screen.getAllByTestId(/column-/i)).toHaveLength(5);
+    expect(await screen.findAllByTestId(/column-/i)).toHaveLength(5);
   });
 
   it("renames a column", async () => {
@@ -67,5 +70,53 @@ describe("KanbanBoard", () => {
     expect(
       await screen.findByText("Could not load board from backend. Showing local board.")
     ).toBeInTheDocument();
+  });
+
+  it("sends prompt to AI and renders assistant reply", async () => {
+    requestAiBoardActionMock.mockResolvedValueOnce({
+      status: "ok",
+      username: "user",
+      assistantMessage: "Renamed the backlog column.",
+      operationsApplied: [{ type: "rename_column" }],
+      board: {
+        ...initialData,
+        columns: initialData.columns.map((column) =>
+          column.id === "col-backlog" ? { ...column, title: "Ideas" } : column
+        ),
+      },
+      updatedAt: "now",
+      model: "qwen/qwen3-coder:free",
+      requestedModel: "qwen/qwen3-coder:free",
+      fallbackUsed: false,
+    });
+
+    render(<KanbanBoard />);
+
+    await userEvent.type(
+      screen.getByPlaceholderText("Ask AI to update this board"),
+      "Rename backlog to ideas"
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Send to AI" }));
+
+    expect(await screen.findByText("Renamed the backlog column.")).toBeInTheDocument();
+    expect(screen.getAllByText("Ideas").length).toBeGreaterThan(0);
+    expect(requestAiBoardActionMock).toHaveBeenCalledWith("Rename backlog to ideas");
+  });
+
+  it("shows AI error and keeps board stable if AI request fails", async () => {
+    requestAiBoardActionMock.mockRejectedValueOnce(new Error("fail"));
+
+    render(<KanbanBoard />);
+
+    await userEvent.type(
+      screen.getByPlaceholderText("Ask AI to update this board"),
+      "Move card-1 to done"
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Send to AI" }));
+
+    expect(
+      await screen.findByText("AI request failed. Your board has not been changed.")
+    ).toBeInTheDocument();
+    expect(screen.getAllByTestId(/column-/i)).toHaveLength(5);
   });
 });

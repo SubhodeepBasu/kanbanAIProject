@@ -272,11 +272,11 @@ Current status note:
 
 ### Checklist
 
-- [ ] Add sidebar chat UI to frontend.
-- [ ] Send user prompts to backend AI endpoint.
-- [ ] Render assistant replies in chat thread.
-- [ ] Apply returned board updates and refresh UI state automatically.
-- [ ] Keep layout responsive for desktop and mobile.
+- [x] Add sidebar chat UI to frontend.
+- [x] Send user prompts to backend AI endpoint.
+- [x] Render assistant replies in chat thread.
+- [x] Apply returned board updates and refresh UI state automatically.
+- [x] Keep layout responsive for desktop and mobile.
 
 ### Tests
 
@@ -291,6 +291,14 @@ Current status note:
 - AI sidebar is usable and stable.
 - Board updates from AI appear automatically in UI.
 - Test suite maintains reliable, high-value coverage for important behavior.
+
+Current status note:
+
+- Added right-side AI chat panel to `KanbanBoard` with responsive layout.
+- Chat sends prompts to backend `POST /api/ai/board` through new frontend API client.
+- Assistant replies are rendered in the sidebar thread.
+- Returned board state is applied immediately in UI after AI response.
+- Added frontend tests for prompt-send/reply rendering, board auto-update, and non-destructive error handling.
 
 ## Cross-cutting verification (applies throughout)
 
