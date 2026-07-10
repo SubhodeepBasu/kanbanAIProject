@@ -208,10 +208,10 @@ Current status note:
 
 ### Checklist
 
-- [ ] Add backend AI service client for OpenRouter.
-- [ ] Read `OPENROUTER_API_KEY` from environment.
-- [ ] Configure model: `openai/gpt-oss-120b:free`.
-- [ ] Add simple backend route/test path that runs `2+2` prompt.
+- [x] Add backend AI service client for OpenRouter.
+- [x] Read `OPENROUTER_API_KEY` from environment.
+- [x] Configure model: `qwen/qwen3-coder:free`.
+- [x] Add simple backend route/test path that runs `2+2` prompt.
 
 ### Tests
 
@@ -224,16 +224,26 @@ Current status note:
 - Backend can call OpenRouter with configured model.
 - Connectivity check is repeatable and documented.
 
+Current status note:
+
+- Added OpenRouter client module with request payload builder and response parser.
+- Added one-time 429 fallback retry from `qwen/qwen3-coder:free` to `openai/gpt-4o-mini` for connectivity test path.
+- Added `GET /api/ai/test` endpoint:
+	- default (`live=false`) returns readiness metadata and usage guidance.
+	- opt-in live check (`live=true`) runs OpenRouter `2+2` request using `OPENROUTER_API_KEY`.
+- Configured model: `qwen/qwen3-coder:free`.
+- Added unit/API tests for payload handling and endpoint behavior; backend tests pass.
+
 ## Part 9: Structured AI board actions
 
 ### Checklist
 
-- [ ] Define structured output schema with:
+- [x] Define structured output schema with:
 	- Assistant response text.
 	- Optional list of board operations.
-- [ ] Include full board JSON and latest user prompt in AI request.
-- [ ] Support operation types for create/edit/move/delete card and rename column.
-- [ ] Apply valid operations server-side and return updated board.
+- [x] Include full board JSON and latest user prompt in AI request.
+- [x] Support operation types for create/edit/move/delete card and rename column.
+- [x] Apply valid operations server-side and return updated board.
 
 ### Tests
 
@@ -247,6 +257,16 @@ Current status note:
 
 - AI output is structured and validated before any board mutation.
 - Supported operations include column renaming.
+
+Current status note:
+
+- Added `POST /api/ai/board` endpoint for structured AI board operations.
+- AI request now includes latest user prompt and full current board JSON.
+- Implemented strict payload validation for `assistantMessage` and `operations`.
+- Supported operation types: `create_card`, `edit_card`, `move_card`, `delete_card`, `rename_column`.
+- Server applies valid operations, persists board updates, and returns updated board state.
+- Invalid operations are safely rejected with `422` and clear error details.
+- Added unit and API integration tests covering no-op behavior, valid mutations, and invalid-operation rejection.
 
 ## Part 10: AI sidebar UI
 

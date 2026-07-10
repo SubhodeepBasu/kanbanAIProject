@@ -7,11 +7,17 @@ from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from ai import MODEL_NAME, run_board_action_prompt, run_connectivity_test
+from ai_actions import apply_board_operations, validate_ai_actions_payload
 from db import get_user_board, init_database, save_user_board
 
 
 class BoardUpdateRequest(BaseModel):
     board: dict[str, Any]
+
+
+class AiBoardRequest(BaseModel):
+    prompt: str
 
 
 def is_valid_board_shape(board: dict[str, Any]) -> bool:
@@ -32,6 +38,37 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok", "service": "pm-backend"}
 
+    @app.get("/api/ai/test")
+    def ai_connectivity_test(live: bool = False, model: str = MODEL_NAME) -> dict[str, Any]:
+        selected_model = model.strip() or MODEL_NAME
+
+        if not live:
+            return {
+                "status": "ready",
+                "model": selected_model,
+                "message": "Set live=true to run the OpenRouter 2+2 connectivity check.",
+            }
+
+        api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        if not api_key:
+            raise HTTPException(
+                status_code=503,
+                detail="OPENROUTER_API_KEY is not configured",
+            )
+
+        try:
+            result = run_connectivity_test(api_key, model=selected_model)
+        except Exception as error:
+            raise HTTPException(
+                status_code=502,
+                detail=f"OpenRouter request failed: {error}",
+            ) from error
+
+        return {
+            "status": "ok",
+            **result,
+        }
+
     @app.get("/api/board")
     def read_board(username: str = "user") -> dict[str, Any]:
         board_data = get_user_board(db_file, username)
@@ -41,6 +78,68 @@ def create_app(
             "username": username,
             "board": board_data["board"],
             "updatedAt": board_data["updatedAt"],
+        }
+
+    @app.post("/api/ai/board")
+    def ai_board_actions(
+        payload: AiBoardRequest,
+        username: str = "user",
+        model: str = MODEL_NAME,
+    ) -> dict[str, Any]:
+        prompt = payload.prompt.strip()
+        if not prompt:
+            raise HTTPException(status_code=422, detail="Prompt cannot be empty")
+
+        selected_model = model.strip() or MODEL_NAME
+        board_data = get_user_board(db_file, username)
+        if board_data is None:
+            raise HTTPException(status_code=404, detail="User or board not found")
+
+        api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        if not api_key:
+            raise HTTPException(
+                status_code=503,
+                detail="OPENROUTER_API_KEY is not configured",
+            )
+
+        try:
+            ai_result = run_board_action_prompt(
+                api_key=api_key,
+                user_prompt=prompt,
+                board=board_data["board"],
+                model=selected_model,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=502, detail=f"Invalid AI response: {error}") from error
+        except Exception as error:
+            raise HTTPException(status_code=502, detail=f"OpenRouter request failed: {error}") from error
+
+        try:
+            assistant_message, operations = validate_ai_actions_payload(ai_result["payload"])
+            next_board, applied_operations = apply_board_operations(board_data["board"], operations)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=f"Invalid AI operations: {error}") from error
+
+        if applied_operations:
+            saved = save_user_board(db_file, username, next_board)
+            if saved is None:
+                raise HTTPException(status_code=404, detail="User or board not found")
+            result_board = saved["board"]
+            updated_at = saved["updatedAt"]
+        else:
+            result_board = board_data["board"]
+            updated_at = board_data["updatedAt"]
+
+        return {
+            "status": "ok",
+            "username": username,
+            "assistantMessage": assistant_message,
+            "operationsApplied": applied_operations,
+            "board": result_board,
+            "updatedAt": updated_at,
+            "model": ai_result["model"],
+            "requestedModel": ai_result["requestedModel"],
+            "fallbackUsed": ai_result["fallbackUsed"],
         }
 
     @app.put("/api/board")
