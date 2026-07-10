@@ -1,10 +1,24 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { KanbanBoard } from "@/components/KanbanBoard";
+import { initialData } from "@/lib/kanban";
+
+const fetchBoardMock = vi.fn();
+const saveBoardMock = vi.fn();
+
+vi.mock("@/lib/api", () => ({
+  fetchBoard: () => fetchBoardMock(),
+  saveBoard: (board: unknown) => saveBoardMock(board),
+}));
 
 const getFirstColumn = () => screen.getAllByTestId(/column-/i)[0];
 
 describe("KanbanBoard", () => {
+  beforeEach(() => {
+    fetchBoardMock.mockResolvedValue(initialData);
+    saveBoardMock.mockResolvedValue(undefined);
+  });
+
   it("renders five columns", () => {
     render(<KanbanBoard />);
     expect(screen.getAllByTestId(/column-/i)).toHaveLength(5);
@@ -14,9 +28,12 @@ describe("KanbanBoard", () => {
     render(<KanbanBoard />);
     const column = getFirstColumn();
     const input = within(column).getByLabelText("Column title");
-    await userEvent.clear(input);
+    await userEvent.click(input);
+    await userEvent.keyboard("{Control>}a{/Control}");
+    await userEvent.keyboard("{Backspace}");
     await userEvent.type(input, "New Name");
     expect(input).toHaveValue("New Name");
+    expect(saveBoardMock).toHaveBeenCalled();
   });
 
   it("adds and removes a card", async () => {
@@ -42,5 +59,13 @@ describe("KanbanBoard", () => {
     await userEvent.click(deleteButton);
 
     expect(within(column).queryByText("New card")).not.toBeInTheDocument();
+  });
+
+  it("shows backend load error if board fetch fails", async () => {
+    fetchBoardMock.mockRejectedValueOnce(new Error("boom"));
+    render(<KanbanBoard />);
+    expect(
+      await screen.findByText("Could not load board from backend. Showing local board.")
+    ).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -20,10 +20,51 @@ import {
   moveCard,
   type BoardData,
 } from "@/lib/kanban";
+import { fetchBoard, saveBoard } from "@/lib/api";
 
 export const KanbanBoard = () => {
   const [board, setBoard] = useState<BoardData>(() => initialData);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>("");
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const nextBoard = await fetchBoard();
+        if (!mounted) {
+          return;
+        }
+        setBoard(nextBoard);
+        setError("");
+      } catch {
+        if (!mounted) {
+          return;
+        }
+        setError("Could not load board from backend. Showing local board.");
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const applyBoardChange = (updater: (prev: BoardData) => BoardData) => {
+    setBoard((prev) => {
+      const nextBoardState = updater(prev);
+      saveBoard(nextBoardState).catch(() => {
+        setError("Could not save board changes. Please retry.");
+      });
+      return nextBoardState;
+    });
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -45,14 +86,14 @@ export const KanbanBoard = () => {
       return;
     }
 
-    setBoard((prev) => ({
+    applyBoardChange((prev) => ({
       ...prev,
       columns: moveCard(prev.columns, active.id as string, over.id as string),
     }));
   };
 
   const handleRenameColumn = (columnId: string, title: string) => {
-    setBoard((prev) => ({
+    applyBoardChange((prev) => ({
       ...prev,
       columns: prev.columns.map((column) =>
         column.id === columnId ? { ...column, title } : column
@@ -62,7 +103,7 @@ export const KanbanBoard = () => {
 
   const handleAddCard = (columnId: string, title: string, details: string) => {
     const id = createId("card");
-    setBoard((prev) => ({
+    applyBoardChange((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -77,7 +118,7 @@ export const KanbanBoard = () => {
   };
 
   const handleDeleteCard = (columnId: string, cardId: string) => {
-    setBoard((prev) => {
+    applyBoardChange((prev) => {
       return {
         ...prev,
         cards: Object.fromEntries(
@@ -126,6 +167,14 @@ export const KanbanBoard = () => {
               </p>
             </div>
           </div>
+          {isLoading ? (
+            <p className="text-sm font-semibold text-[var(--gray-text)]">Loading board...</p>
+          ) : null}
+          {error ? (
+            <p className="text-sm font-semibold text-red-600" role="alert">
+              {error}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-4">
             {board.columns.map((column) => {
               const columnTheme = getColumnTheme(column.id);

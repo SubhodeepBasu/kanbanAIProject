@@ -179,10 +179,10 @@ Current status note:
 
 ### Checklist
 
-- [ ] Replace frontend in-memory board state with API-driven state.
-- [ ] Load board after client login.
-- [ ] Persist board changes (rename, add, delete, move) via backend API.
-- [ ] Add user-facing loading and error states.
+- [x] Replace frontend in-memory board state with API-driven state.
+- [x] Load board after client login.
+- [x] Persist board changes (rename, add, delete, move) via backend API.
+- [x] Add user-facing loading and error states.
 
 ### Tests
 
@@ -196,6 +196,13 @@ Current status note:
 
 - Board is persistent, not demo-only memory state.
 - Core Kanban operations round-trip through backend reliably.
+
+Current status note:
+
+- Frontend now loads board state from backend `/api/board`.
+- Board updates call backend `PUT /api/board` and persist across refresh.
+- Loading and backend error messages are shown in the board UI.
+- Frontend unit tests pass and integrated E2E passes against backend-served app on port `8000`.
 
 ## Part 8: AI connectivity (OpenRouter)
 
