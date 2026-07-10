@@ -44,6 +44,28 @@ The platform combines:
 
 Planned scope in `docs/PLAN.md` is complete. Verification is also complete: lint, unit tests, E2E tests, and coverage baselines.
 
+## Release Notes (Final MVP)
+
+Release Date: 2026-07-10
+
+### Highlights
+- Completed all planned implementation parts (Part 1 through Part 10).
+- Delivered persistent Kanban board workflow backed by FastAPI + SQLite.
+- Added AI sidebar with validated server-side operation application.
+- Finalized Dockerized local runtime with cross-platform start and stop scripts.
+
+### Quality Summary
+- Frontend lint: pass.
+- Frontend test suite: pass (`npm run test:all`).
+- Frontend unit coverage: `80.73%` statements.
+- Backend tests: `22 passed`.
+- Backend coverage: `86%` total.
+
+### Notable Reliability Improvements
+- Stabilized E2E drag-and-drop tests with deterministic board reset.
+- Standardized Playwright runs on installed Chrome channel in this environment.
+- Added backend AI fallback behavior for `429` during connectivity checks.
+
 ---
 
 ## Product Scope
