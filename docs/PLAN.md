@@ -302,16 +302,24 @@ Current status note:
 - Returned board state is applied immediately in UI after AI response.
 - Added frontend tests for prompt-send/reply rendering, board auto-update, and non-destructive error handling.
 - Responsive refinement after live repro: fixed card remove-button overflow by making card header/content wrap correctly and adjusted board column breakpoints (`sm=2`, `lg=3`, `2xl=5`).
-- Updated E2E drag test to select a dynamic visible source card so integration tests remain stable across responsive layouts.
+- Updated E2E stability approach to reset board state before each scenario via API and validate drag between adjacent columns, removing flaky state/layout coupling.
 
 ## Cross-cutting verification (applies throughout)
 
 ### Checklist
 
-- [ ] Keep unit coverage healthy (target around 80% when sensible) and prioritize high-value tests.
-- [ ] Add/maintain robust integration tests when a boundary changes.
-- [ ] Run lint and tests before requesting review.
-- [ ] Keep docs concise and updated when architecture changes.
+- [x] Keep unit coverage healthy (target around 80% when sensible) and prioritize high-value tests.
+- [x] Add/maintain robust integration tests when a boundary changes.
+- [x] Run lint and tests before requesting review.
+- [x] Keep docs concise and updated when architecture changes.
+
+Current status note:
+
+- Frontend lint passes.
+- Frontend full suite passes (`test:all`), including E2E after deterministic board reset and cross-column drag stabilization.
+- Frontend unit coverage is `80.73%` statements (`vitest --coverage`).
+- Backend unit/integration tests pass (`python -m pytest -q`, 22 passed).
+- Backend coverage run passes (`python -m pytest --cov=. --cov-report=term-missing -q`) with `86%` total coverage.
 
 ### Core commands
 
