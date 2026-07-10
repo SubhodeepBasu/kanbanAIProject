@@ -13,7 +13,13 @@ import {
 } from "@dnd-kit/core";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
-import { createId, initialData, moveCard, type BoardData } from "@/lib/kanban";
+import {
+  createId,
+  getColumnTheme,
+  initialData,
+  moveCard,
+  type BoardData,
+} from "@/lib/kanban";
 
 export const KanbanBoard = () => {
   const [board, setBoard] = useState<BoardData>(() => initialData);
@@ -121,15 +127,21 @@ export const KanbanBoard = () => {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            {board.columns.map((column) => (
-              <div
-                key={column.id}
-                className="flex items-center gap-2 rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--navy-dark)]"
-              >
-                <span className="h-2 w-2 rounded-full bg-[var(--accent-yellow)]" />
-                {column.title}
-              </div>
-            ))}
+            {board.columns.map((column) => {
+              const columnTheme = getColumnTheme(column.id);
+              return (
+                <div
+                  key={column.id}
+                  className="flex items-center gap-2 rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--navy-dark)]"
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: columnTheme.accent }}
+                  />
+                  {column.title}
+                </div>
+              );
+            })}
           </div>
         </header>
 

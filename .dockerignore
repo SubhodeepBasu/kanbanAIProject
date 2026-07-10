@@ -1,0 +1,10 @@
+node_modules
+.git
+.gitignore
+frontend/node_modules
+frontend/.next
+frontend/test-results
+frontend/playwright-report
+__pycache__
+*.pyc
+.env

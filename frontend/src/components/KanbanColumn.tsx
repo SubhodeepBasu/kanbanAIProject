@@ -1,7 +1,8 @@
 import clsx from "clsx";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { Card, Column } from "@/lib/kanban";
+import type { CSSProperties } from "react";
+import { getColumnTheme, type Card, type Column } from "@/lib/kanban";
 import { KanbanCard } from "@/components/KanbanCard";
 import { NewCardForm } from "@/components/NewCardForm";
 
@@ -21,21 +22,27 @@ export const KanbanColumn = ({
   onDeleteCard,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const columnTheme = getColumnTheme(column.id);
+  const columnStyle = {
+    "--column-accent": columnTheme.accent,
+    "--column-tint": columnTheme.tint,
+  } as CSSProperties;
 
   return (
     <section
       ref={setNodeRef}
+      style={columnStyle}
       className={clsx(
-        "flex min-h-[520px] flex-col rounded-3xl border border-[var(--stroke)] bg-[var(--surface-strong)] p-4 shadow-[var(--shadow)] transition",
-        isOver && "ring-2 ring-[var(--accent-yellow)]"
+        "flex min-h-[520px] flex-col rounded-3xl border border-[var(--stroke)] bg-[linear-gradient(180deg,var(--column-tint)_0%,var(--surface-strong)_150px)] p-4 shadow-[var(--shadow)] transition",
+        isOver && "ring-2 ring-[var(--column-accent)]"
       )}
       data-testid={`column-${column.id}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="w-full">
           <div className="flex items-center gap-3">
-            <div className="h-2 w-10 rounded-full bg-[var(--accent-yellow)]" />
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)]">
+            <div className="h-2 w-10 rounded-full bg-[var(--column-accent)]" />
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--column-accent)]">
               {cards.length} cards
             </span>
           </div>

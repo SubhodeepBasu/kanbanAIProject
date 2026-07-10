@@ -174,3 +174,5 @@ cython_debug/
 
 .DS_Store
 
+frontend/.playwright/
+frontend/test-results/

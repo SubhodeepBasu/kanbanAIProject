@@ -15,6 +15,27 @@ export type BoardData = {
   cards: Record<string, Card>;
 };
 
+export type ColumnTheme = {
+  accent: string;
+  tint: string;
+};
+
+const columnThemes: Record<string, ColumnTheme> = {
+  "col-backlog": { accent: "#2a7fd4", tint: "rgba(42,127,212,0.18)" },
+  "col-discovery": { accent: "#8a3fb0", tint: "rgba(138,63,176,0.17)" },
+  "col-progress": { accent: "#d98b00", tint: "rgba(217,139,0,0.18)" },
+  "col-review": { accent: "#0f8f9a", tint: "rgba(15,143,154,0.17)" },
+  "col-done": { accent: "#2f8f4d", tint: "rgba(47,143,77,0.17)" },
+};
+
+const fallbackColumnTheme: ColumnTheme = {
+  accent: "var(--accent-yellow)",
+  tint: "rgba(236,173,10,0.16)",
+};
+
+export const getColumnTheme = (columnId: string): ColumnTheme =>
+  columnThemes[columnId] ?? fallbackColumnTheme;
+
 export const initialData: BoardData = {
   columns: [
     { id: "col-backlog", title: "Backlog", cardIds: ["card-1", "card-2"] },
