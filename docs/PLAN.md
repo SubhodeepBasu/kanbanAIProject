@@ -263,6 +263,7 @@ Current status note:
 - Added `POST /api/ai/board` endpoint for structured AI board operations.
 - AI request now includes latest user prompt and full current board JSON.
 - Implemented strict payload validation for `assistantMessage` and `operations`.
+- Tightened backend AI system instructions to explicitly require operation IDs (`columnId`, `cardId`, `toColumnId`) to reduce invalid structured outputs.
 - Supported operation types: `create_card`, `edit_card`, `move_card`, `delete_card`, `rename_column`.
 - Server applies valid operations, persists board updates, and returns updated board state.
 - Invalid operations are safely rejected with `422` and clear error details.
@@ -296,9 +297,12 @@ Current status note:
 
 - Added right-side AI chat panel to `KanbanBoard` with responsive layout.
 - Chat sends prompts to backend `POST /api/ai/board` through new frontend API client.
+- Frontend AI requests pin `model=openai/gpt-4o-mini` for chat reliability in this environment.
 - Assistant replies are rendered in the sidebar thread.
 - Returned board state is applied immediately in UI after AI response.
 - Added frontend tests for prompt-send/reply rendering, board auto-update, and non-destructive error handling.
+- Responsive refinement after live repro: fixed card remove-button overflow by making card header/content wrap correctly and adjusted board column breakpoints (`sm=2`, `lg=3`, `2xl=5`).
+- Updated E2E drag test to select a dynamic visible source card so integration tests remain stable across responsive layouts.
 
 ## Cross-cutting verification (applies throughout)
 
