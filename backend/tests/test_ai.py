@@ -75,6 +75,31 @@ def test_run_connectivity_test_retries_once_on_429(monkeypatch) -> None:
     assert result["containsFour"] is True
 
 
+def test_run_connectivity_test_retries_with_primary_model_when_called_with_fallback(
+    monkeypatch,
+) -> None:
+    """A caller that already requests the fallback model still gets a real retry on 429."""
+    calls: list[str] = []
+
+    def fake_call(api_key: str, prompt: str, model: str = MODEL_NAME, timeout: float = 30.0) -> str:
+        del api_key, prompt, timeout
+        calls.append(model)
+        if len(calls) == 1:
+            request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+            response = httpx.Response(429, request=request)
+            raise httpx.HTTPStatusError("429", request=request, response=response)
+        return "4"
+
+    monkeypatch.setattr("ai.call_openrouter_prompt", fake_call)
+
+    result = run_connectivity_test("demo-key", model=FALLBACK_MODEL_NAME)
+
+    assert calls == [FALLBACK_MODEL_NAME, MODEL_NAME]
+    assert result["requestedModel"] == FALLBACK_MODEL_NAME
+    assert result["model"] == MODEL_NAME
+    assert result["fallbackUsed"] is True
+
+
 def test_run_connectivity_test_does_not_retry_non_429(monkeypatch) -> None:
     def fake_call(api_key: str, prompt: str, model: str = MODEL_NAME, timeout: float = 30.0) -> str:
         del api_key, prompt, model, timeout

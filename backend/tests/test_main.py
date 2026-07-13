@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -58,6 +59,19 @@ def test_board_read_and_write_roundtrip(tmp_path: Path) -> None:
     verify_response = client.get("/api/board")
     assert verify_response.status_code == 200
     assert verify_response.json()["board"] == updated_board
+
+
+def test_board_write_rejects_dangling_card_reference(tmp_path: Path) -> None:
+    app = create_app(str(tmp_path / "missing"), str(tmp_path / "pm.db"))
+    client = TestClient(app)
+
+    bad_board = {
+        "columns": [{"id": "col-backlog", "title": "Backlog", "cardIds": ["ghost-card"]}],
+        "cards": {},
+    }
+    response = client.put("/api/board", json={"board": bad_board})
+
+    assert response.status_code == 422
 
 
 def test_board_routes_return_404_for_unknown_user(tmp_path: Path) -> None:
@@ -191,6 +205,50 @@ def test_ai_board_route_applies_valid_operations(tmp_path: Path, monkeypatch) ->
     backlog = [c for c in columns if c["id"] == "col-backlog"][0]
     assert backlog["title"] == "Ideas"
     assert "card-101" in body["board"]["cards"]
+
+
+def test_ai_board_route_returns_409_when_board_changed_during_ai_call(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "demo-key")
+    db_file = tmp_path / "pm.db"
+
+    def fake_ai(*, api_key: str, user_prompt: str, board: dict[str, object], model: str) -> dict[str, object]:
+        del api_key, user_prompt, model
+        # Simulate a manual edit landing while the (slow) AI call is in flight.
+        from db import save_user_board
+
+        concurrent_board = copy.deepcopy(board)
+        for column in concurrent_board["columns"]:
+            if column["id"] == "col-discovery":
+                column["title"] = "Concurrent Edit"
+        save_user_board(db_file, "user", concurrent_board)
+
+        return {
+            "model": "qwen/qwen3-coder:free",
+            "requestedModel": "qwen/qwen3-coder:free",
+            "fallbackUsed": False,
+            "payload": {
+                "assistantMessage": "Renamed backlog.",
+                "operations": [
+                    {"type": "rename_column", "columnId": "col-backlog", "title": "Ideas"},
+                ],
+            },
+        }
+
+    monkeypatch.setattr("main.run_board_action_prompt", fake_ai)
+    app = create_app(str(tmp_path / "missing"), str(db_file))
+    client = TestClient(app)
+
+    response = client.post("/api/ai/board", json={"prompt": "Rename backlog"})
+
+    assert response.status_code == 409
+
+    verify = client.get("/api/board").json()["board"]
+    discovery = [c for c in verify["columns"] if c["id"] == "col-discovery"][0]
+    backlog = [c for c in verify["columns"] if c["id"] == "col-backlog"][0]
+    assert discovery["title"] == "Concurrent Edit"
+    assert backlog["title"] != "Ideas"
 
 
 def test_ai_board_route_rejects_invalid_operations(tmp_path: Path, monkeypatch) -> None:

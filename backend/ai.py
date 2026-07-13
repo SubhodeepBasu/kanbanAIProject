@@ -8,6 +8,11 @@ MODEL_NAME = "qwen/qwen3-coder:free"
 FALLBACK_MODEL_NAME = "openai/gpt-4o-mini"
 
 
+def _retry_model(model: str) -> str:
+    """The other configured model, so a retry never repeats the model that just failed."""
+    return MODEL_NAME if model == FALLBACK_MODEL_NAME else FALLBACK_MODEL_NAME
+
+
 def build_openrouter_payload(prompt: str, model: str = MODEL_NAME) -> dict[str, Any]:
     return {
         "model": model,
@@ -68,14 +73,12 @@ def run_connectivity_test(api_key: str, model: str = MODEL_NAME) -> dict[str, An
     try:
         answer = call_openrouter_prompt(api_key, prompt, model=model)
     except httpx.HTTPStatusError as error:
-        status_code = error.response.status_code
-        should_retry = status_code == 429 and model != FALLBACK_MODEL_NAME
-        if not should_retry:
+        if error.response.status_code != 429:
             raise
 
         used_fallback = True
-        used_model = FALLBACK_MODEL_NAME
-        answer = call_openrouter_prompt(api_key, prompt, model=FALLBACK_MODEL_NAME)
+        used_model = _retry_model(model)
+        answer = call_openrouter_prompt(api_key, prompt, model=used_model)
 
     contains_four = "4" in answer
     return {
@@ -156,13 +159,11 @@ def run_board_action_prompt(
     try:
         raw_text = make_request(model)
     except httpx.HTTPStatusError as error:
-        status_code = error.response.status_code
-        should_retry = status_code == 429 and model != FALLBACK_MODEL_NAME
-        if not should_retry:
+        if error.response.status_code != 429:
             raise
-        used_model = FALLBACK_MODEL_NAME
+        used_model = _retry_model(model)
         used_fallback = True
-        raw_text = make_request(FALLBACK_MODEL_NAME)
+        raw_text = make_request(used_model)
 
     try:
         parsed = json.loads(raw_text)

@@ -2,6 +2,45 @@ import copy
 from typing import Any
 
 
+def is_valid_board_shape(board: dict[str, Any]) -> bool:
+    columns = board.get("columns")
+    cards = board.get("cards")
+
+    if not isinstance(columns, list) or not isinstance(cards, dict):
+        return False
+
+    referenced_card_ids: set[str] = set()
+    for column in columns:
+        if not isinstance(column, dict):
+            return False
+
+        column_id = column.get("id")
+        card_ids = column.get("cardIds")
+        if not isinstance(column_id, str) or not column_id:
+            return False
+        if not isinstance(card_ids, list) or not all(
+            isinstance(card_id, str) for card_id in card_ids
+        ):
+            return False
+
+        for card_id in card_ids:
+            if card_id in referenced_card_ids:
+                return False
+            referenced_card_ids.add(card_id)
+
+    for card_id, card in cards.items():
+        if not isinstance(card, dict):
+            return False
+        if card.get("id") != card_id:
+            return False
+        if not isinstance(card.get("title"), str):
+            return False
+        if not isinstance(card.get("details"), str):
+            return False
+
+    return referenced_card_ids == set(cards.keys())
+
+
 def validate_ai_actions_payload(payload: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
     assistant_message = payload.get("assistantMessage")
     operations = payload.get("operations", [])
@@ -22,7 +61,7 @@ def apply_board_operations(
     columns = next_board.get("columns")
     cards = next_board.get("cards")
 
-    if not isinstance(columns, list) or not isinstance(cards, dict):
+    if not is_valid_board_shape(next_board):
         raise ValueError("Board shape is invalid")
 
     for operation in operations:
@@ -45,6 +84,9 @@ def apply_board_operations(
             _apply_delete_card(columns, cards, operation)
         else:
             raise ValueError(f"Unsupported operation type: {op_type}")
+
+    if not is_valid_board_shape(next_board):
+        raise ValueError("Resulting board shape is invalid")
 
     return next_board, operations
 

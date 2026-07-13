@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { initialData } from "@/lib/kanban";
@@ -62,6 +62,29 @@ describe("KanbanBoard", () => {
     await userEvent.click(deleteButton);
 
     expect(within(column).queryByText("New card")).not.toBeInTheDocument();
+  });
+
+  it("ignores board edits attempted before the initial fetch resolves", async () => {
+    let resolveFetch: (board: typeof initialData) => void = () => {};
+    fetchBoardMock.mockReturnValueOnce(
+      new Promise<typeof initialData>((resolve) => {
+        resolveFetch = resolve;
+      })
+    );
+
+    render(<KanbanBoard />);
+    saveBoardMock.mockClear();
+    const column = getFirstColumn();
+    const input = within(column).getByLabelText("Column title");
+    await userEvent.click(input);
+    await userEvent.type(input, "X");
+
+    expect(saveBoardMock).not.toHaveBeenCalled();
+
+    resolveFetch(initialData);
+    await waitFor(() =>
+      expect(screen.queryByText(/loading board/i)).not.toBeInTheDocument()
+    );
   });
 
   it("shows backend load error if board fetch fails", async () => {

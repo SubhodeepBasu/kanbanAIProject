@@ -1,7 +1,9 @@
 import sqlite3
 from pathlib import Path
 
-from db import default_board, get_user_board, init_database, save_user_board
+import pytest
+
+from db import BoardConflictError, default_board, get_user_board, init_database, save_user_board
 
 
 def test_init_database_creates_tables_and_default_user_board(tmp_path: Path) -> None:
@@ -53,3 +55,42 @@ def test_save_user_board_returns_none_for_unknown_user(tmp_path: Path) -> None:
     )
 
     assert result is None
+
+
+def test_save_user_board_conditional_save_succeeds_when_version_matches(tmp_path: Path) -> None:
+    db_file = tmp_path / "pm.db"
+    init_database(db_file)
+
+    current = get_user_board(db_file, "user")
+    assert current is not None
+
+    result = save_user_board(
+        db_file,
+        "user",
+        {"columns": [], "cards": {}},
+        expected_updated_at=current["updatedAt"],
+    )
+
+    assert result is not None
+    assert result["board"] == {"columns": [], "cards": {}}
+
+
+def test_save_user_board_conflict_when_version_is_stale(tmp_path: Path) -> None:
+    db_file = tmp_path / "pm.db"
+    init_database(db_file)
+
+    # Simulate a concurrent write that lands first: the version read earlier is now stale.
+    save_user_board(db_file, "user", {"columns": [], "cards": {}})
+
+    with pytest.raises(BoardConflictError):
+        save_user_board(
+            db_file,
+            "user",
+            {"columns": [{"id": "col-x", "title": "X", "cardIds": []}], "cards": {}},
+            expected_updated_at="2000-01-01T00:00:00.000Z",
+        )
+
+    # The conflicting write must not have been applied.
+    stored = get_user_board(db_file, "user")
+    assert stored is not None
+    assert stored["board"] == {"columns": [], "cards": {}}

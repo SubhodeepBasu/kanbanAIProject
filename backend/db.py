@@ -1,7 +1,18 @@
+import contextlib
 import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+
+class BoardConflictError(Exception):
+    """Raised when a conditional board save's expected version no longer matches."""
+
+
+def _now_iso() -> str:
+    now = datetime.now(timezone.utc)
+    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
 
 
 def default_board() -> dict[str, Any]:
@@ -68,7 +79,7 @@ def _connect(db_path: Path) -> sqlite3.Connection:
 
 
 def init_database(db_path: Path) -> None:
-    with _connect(db_path) as connection:
+    with contextlib.closing(_connect(db_path)) as connection, connection:
         connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS users (
@@ -119,7 +130,7 @@ def _resolve_user_id(connection: sqlite3.Connection, username: str) -> int | Non
 
 
 def get_user_board(db_path: Path, username: str) -> dict[str, Any] | None:
-    with _connect(db_path) as connection:
+    with contextlib.closing(_connect(db_path)) as connection, connection:
         user_id = _resolve_user_id(connection, username)
         if user_id is None:
             return None
@@ -141,19 +152,35 @@ def get_user_board(db_path: Path, username: str) -> dict[str, Any] | None:
         }
 
 
-def save_user_board(db_path: Path, username: str, board: dict[str, Any]) -> dict[str, Any] | None:
-    with _connect(db_path) as connection:
+def save_user_board(
+    db_path: Path,
+    username: str,
+    board: dict[str, Any],
+    expected_updated_at: str | None = None,
+) -> dict[str, Any] | None:
+    updated_at = _now_iso()
+    with contextlib.closing(_connect(db_path)) as connection, connection:
         user_id = _resolve_user_id(connection, username)
         if user_id is None:
             return None
 
-        connection.execute(
-            """
-            UPDATE boards
-            SET board_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            WHERE user_id = ?
-            """,
-            (json.dumps(board), user_id),
-        )
+        if expected_updated_at is None:
+            cursor = connection.execute(
+                "UPDATE boards SET board_json = ?, updated_at = ? WHERE user_id = ?",
+                (json.dumps(board), updated_at, user_id),
+            )
+        else:
+            cursor = connection.execute(
+                """
+                UPDATE boards
+                SET board_json = ?, updated_at = ?
+                WHERE user_id = ? AND updated_at = ?
+                """,
+                (json.dumps(board), updated_at, user_id, expected_updated_at),
+            )
+            if cursor.rowcount == 0:
+                raise BoardConflictError(
+                    f"Board for '{username}' was modified since it was last read"
+                )
 
-    return get_user_board(db_path, username)
+    return {"board": board, "updatedAt": updated_at}

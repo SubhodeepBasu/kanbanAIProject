@@ -67,6 +67,9 @@ export const KanbanBoard = () => {
   }, []);
 
   const applyBoardChange = (updater: (prev: BoardData) => BoardData) => {
+    if (isLoading) {
+      return;
+    }
     setBoard((prev) => {
       const nextBoardState = updater(prev);
       saveBoard(nextBoardState).catch(() => {

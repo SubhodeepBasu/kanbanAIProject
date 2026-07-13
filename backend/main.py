@@ -8,8 +8,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from ai import MODEL_NAME, run_board_action_prompt, run_connectivity_test
-from ai_actions import apply_board_operations, validate_ai_actions_payload
-from db import get_user_board, init_database, save_user_board
+from ai_actions import apply_board_operations, is_valid_board_shape, validate_ai_actions_payload
+from db import BoardConflictError, get_user_board, init_database, save_user_board
 
 
 class BoardUpdateRequest(BaseModel):
@@ -18,12 +18,6 @@ class BoardUpdateRequest(BaseModel):
 
 class AiBoardRequest(BaseModel):
     prompt: str
-
-
-def is_valid_board_shape(board: dict[str, Any]) -> bool:
-    columns = board.get("columns")
-    cards = board.get("cards")
-    return isinstance(columns, list) and isinstance(cards, dict)
 
 
 def create_app(
@@ -121,7 +115,18 @@ def create_app(
             raise HTTPException(status_code=422, detail=f"Invalid AI operations: {error}") from error
 
         if applied_operations:
-            saved = save_user_board(db_file, username, next_board)
+            try:
+                saved = save_user_board(
+                    db_file,
+                    username,
+                    next_board,
+                    expected_updated_at=board_data["updatedAt"],
+                )
+            except BoardConflictError as error:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"{error}. Reload the board and try again.",
+                ) from error
             if saved is None:
                 raise HTTPException(status_code=404, detail="User or board not found")
             result_board = saved["board"]
